@@ -71,8 +71,9 @@ class ProxyManager:
             # Multiple sources untuk redundancy
             sources = [
                 Config.PROXY_URL,
-                "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
-                "https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt",
+                "https://raw.githubusercontent.com/proxifly/free-proxy-list/refs/heads/main/proxies/all/data.txt",
+        "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
+        "https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt",
             ]
             
             for source in sources[:2]:  # Ambil 2 sumber saja untuk kecepatan
