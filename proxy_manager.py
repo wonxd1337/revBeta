@@ -61,45 +61,51 @@ class ProxyManager:
         elif stats['status'] == 'bad':
             weight *= 0.5
         
-        return max(0.1, min(3.0, weight))
+        # Gunakan nilai dari config
+        return max(Config.PROXY_MIN_WEIGHT, min(Config.PROXY_MAX_WEIGHT, weight))
     
     def download_proxies(self):
         """Download proxy dari multiple sources"""
         try:
             all_proxies = []
             
-            # Multiple sources untuk redundancy
-            sources = [
-                Config.PROXY_URL,
-                "https://raw.githubusercontent.com/proxifly/free-proxy-list/refs/heads/main/proxies/all/data.txt",
-        "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
-        "https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt",
-            ]
-            
-            for source in sources[:2]:  # Ambil 2 sumber saja untuk kecepatan
+            for source in Config.PROXY_SOURCES:
                 try:
                     headers = {"User-Agent": "Mozilla/5.0"}
                     response = requests.get(source, headers=headers, timeout=15)
                     
                     if response.status_code == 200:
                         proxies = [line.strip() for line in response.text.split('\n') if line.strip()]
-                        proxies = [p for p in proxies if '://' in p or ':' in p]
                         
-                        # Format proxy jika perlu
-                        formatted = []
-                        for p in proxies:
-                            if '://' not in p:
-                                p = f"http://{p}"
-                            formatted.append(p)
+                        formatted_count = 0
+                        for proxy in proxies:
+                            # Skip SOCKS
+                            if proxy.startswith('socks'):
+                                continue
+                            
+                            # Format proxy
+                            if proxy.startswith('http://') or proxy.startswith('https://'):
+                                all_proxies.append(proxy)
+                                formatted_count += 1
+                            elif ':' in proxy and not proxy.startswith('http'):
+                                all_proxies.append(f"http://{proxy}")
+                                formatted_count += 1
                         
-                        all_proxies.extend(formatted)
-                        print(f"[+] Loaded {len(formatted)} proxies from {source[:50]}")
+                        if Config.DEBUG:
+                            print(f"[+] Loaded {formatted_count} proxies from {source[:50]}")
                         
                 except Exception as e:
+                    if Config.DEBUG:
+                        print(f"[-] Error from {source[:50]}: {e}")
                     continue
             
             # Remove duplicates
             all_proxies = list(dict.fromkeys(all_proxies))
+            
+            # Batasi jumlah sesuai config
+            if len(all_proxies) > Config.PROXY_MAX_TOTAL:
+                all_proxies = all_proxies[:Config.PROXY_MAX_TOTAL]
+                print(f"[+] Limited to {Config.PROXY_MAX_TOTAL} proxies")
             
             with self.lock:
                 # Reset stats untuk proxy baru
@@ -116,7 +122,9 @@ class ProxyManager:
                 for proxy in new_proxies - old_proxies:
                     self.proxy_stats[proxy] = self._init_stats()
             
-            print(f"[+] Proxy Manager: {len(self.proxy_list)} total proxies loaded")
+            print(f"[+] Proxy Manager: {len(self.proxy_list)} proxies ready")
+            if Config.DEBUG and self.proxy_list:
+                print(f"[+] Example: {self.proxy_list[0]}")
             return self.proxy_list
             
         except Exception as e:
@@ -139,7 +147,7 @@ class ProxyManager:
                     stats = self.proxy_stats[proxy]
                     
                     # Proxy dianggap mati jika gagal 5 kali berturut
-                    if stats['consecutive_fails'] < 5:
+                    if stats['consecutive_fails'] < Config.PROXY_MAX_FAILURES:
                         # Update bobot
                         stats['weight'] = self._calculate_weight(stats)
                         alive_proxies.append(proxy)
@@ -147,7 +155,7 @@ class ProxyManager:
             if not alive_proxies:
                 # Semua proxy mati, reset status
                 print("[!] All proxies dead, resetting stats...")
-                for proxy in self.proxy_list[:100]:  # Reset 100 proxy pertama
+                for proxy in self.proxy_list[:100]:
                     if proxy in self.proxy_stats:
                         self.proxy_stats[proxy] = self._init_stats()
                 alive_proxies = self.proxy_list[:100]
@@ -177,7 +185,7 @@ class ProxyManager:
         return {"http": proxy, "https": proxy}
     
     def update_stats(self, proxy_url, success, response_time=None):
-        """Update statistik berdasarkan hasil request REAL (tanpa validasi awal)"""
+        """Update statistik berdasarkan hasil request REAL"""
         with self.lock:
             if proxy_url not in self.proxy_stats:
                 self.proxy_stats[proxy_url] = self._init_stats()
@@ -191,10 +199,9 @@ class ProxyManager:
                 stats['consecutive_fails'] = 0
                 
                 if stats['status'] == 'dead':
-                    stats['status'] = 'good'  # Revive jika berhasil
+                    stats['status'] = 'good'
                 
                 if response_time:
-                    # Update average response time
                     total = stats['total_time'] + response_time
                     count = stats['success'] + stats['fail']
                     stats['avg_time'] = total / count if count > 0 else response_time
@@ -204,10 +211,10 @@ class ProxyManager:
                 stats['fail'] += 1
                 stats['consecutive_fails'] += 1
                 
-                # Jika gagal 5 kali berturut, tandai sebagai dead
-                if stats['consecutive_fails'] >= 5:
+                if stats['consecutive_fails'] >= Config.PROXY_MAX_FAILURES:
                     stats['status'] = 'dead'
-                    print(f"[!] Proxy marked as dead: {proxy_url[:60]}")
+                    if Config.DEBUG:
+                        print(f"[!] Proxy marked as dead: {proxy_url[:60]}")
             
             # Update status berdasarkan success rate
             total = stats['success'] + stats['fail']
@@ -218,7 +225,6 @@ class ProxyManager:
                 elif success_rate > 0.5:
                     stats['status'] = 'good'
             
-            # Recalculate weight
             stats['weight'] = self._calculate_weight(stats)
     
     def start_auto_refresh(self):
@@ -233,7 +239,7 @@ class ProxyManager:
         refresh_thread.start()
     
     def start_health_checker(self):
-        """Background thread untuk cek kesehatan proxy mati (non-blocking)"""
+        """Background thread untuk cek kesehatan proxy mati"""
         def health_check_worker():
             while self.running:
                 time.sleep(300)  # Setiap 5 menit
@@ -241,7 +247,7 @@ class ProxyManager:
                 with self.lock:
                     # Ambil proxy yang mati
                     dead_proxies = [
-                        p for p in self.proxy_list[:50]  # Batasi 50 per cycle
+                        p for p in self.proxy_list[:50]
                         if p in self.proxy_stats and self.proxy_stats[p]['status'] == 'dead'
                     ]
                 
@@ -269,7 +275,7 @@ class ProxyManager:
         checker.start()
     
     def _quick_test(self, proxy):
-        """Test cepat apakah proxy hidup"""
+        """Test cepat apakah proxy hidup - DITAMBAHKAN"""
         try:
             response = requests.get(
                 "http://httpbin.org/ip",
