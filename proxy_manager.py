@@ -73,7 +73,6 @@ class ProxyManager:
                 Config.PROXY_URL,
                 "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
                 "https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt",
-                "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all"
             ]
             
             for source in sources[:2]:  # Ambil 2 sumber saja untuk kecepatan
@@ -207,7 +206,7 @@ class ProxyManager:
                 # Jika gagal 5 kali berturut, tandai sebagai dead
                 if stats['consecutive_fails'] >= 5:
                     stats['status'] = 'dead'
-                    print(f"[!] Proxy marked as dead: {proxy_url[:60]} (after {stats['consecutive_fails']} fails)")
+                    print(f"[!] Proxy marked as dead: {proxy_url[:60]}")
             
             # Update status berdasarkan success rate
             total = stats['success'] + stats['fail']
@@ -299,16 +298,16 @@ class ProxyManager:
                 if total > 0:
                     success_rate = (stats['success'] / total) * 100
                     status_icon = {
-                        'good': '',
-                        'bad': '',
-                        'dead': '',
+                        'good': '✓',
+                        'bad': '⚠',
+                        'dead': '✗',
                         'unknown': '?'
                     }.get(stats['status'], '?')
                     
                     print(f"{status_icon} {proxy[:55]}")
-                    print(f"    Success: {stats['success']} |  Fail: {stats['fail']}")
-                    print(f"    Rate: {success_rate:.1f}% | Time: {stats['avg_time']:.2f}s")
-                    print(f"    Weight: {stats['weight']:.2f} | Status: {stats['status']}")
+                    print(f"   ✓ Success: {stats['success']} | ✗ Fail: {stats['fail']}")
+                    print(f"   📊 Rate: {success_rate:.1f}% | Time: {stats['avg_time']:.2f}s")
+                    print(f"   ⚖ Weight: {stats['weight']:.2f} | Status: {stats['status']}")
                     print()
     
     def get_stats_summary(self):
