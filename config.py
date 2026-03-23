@@ -10,8 +10,12 @@ class Config:
     
     # Proxy settings
     PROXY_REFRESH_INTERVAL = 1800  # 30 menit dalam detik
-    PROXY_URL = "https://raw.githubusercontent.com/proxifly/free-proxy-list/refs/heads/main/proxies/all/data.txt"
-    
+    PROXY_URL = [
+        "https://raw.githubusercontent.com/proxifly/free-proxy-list/refs/heads/main/proxies/all/data.txt",
+        "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
+        "https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt",
+        "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-http.txt",
+    ]
     # RNG settings
     MAX_VALID_RNG = 50
     MAX_VALID_RNG_LIMIT = 200  # Batas maksimal
