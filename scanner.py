@@ -5,7 +5,6 @@ import time
 import socket
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from fake_useragent import UserAgent
 from urllib3.exceptions import InsecureRequestWarning
 from config import Config
 
@@ -14,7 +13,6 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 class MovableTypeScanner:
     def __init__(self, proxy_manager, cache_manager):
-        self.ua = UserAgent()
         self.proxy_manager = proxy_manager
         self.cache_manager = cache_manager
         self.found_urls = set()
@@ -178,7 +176,7 @@ class MovableTypeScanner:
                 try:
                     url = f"{protocol}://{domain}{path}"
                     headers = self.headers.copy()
-                    headers["User-Agent"] = self.ua.random
+                    headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                     
                     response = self.session.get(
                         url, headers=headers, 
@@ -228,7 +226,7 @@ class MovableTypeScanner:
             for xmlrpc_url in xmlrpc_urls:
                 try:
                     headers = self.headers.copy()
-                    headers["User-Agent"] = self.ua.random
+                    headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                     
                     response = self.session.get(
                         xmlrpc_url, headers=headers,
